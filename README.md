@@ -1,17 +1,16 @@
-# Base36 Deflate Oracle & Laplace-Gaussian Hybrid Tail Forecaster (`polymarket-faa-attribution-02`)
+# Quantile Forecaster for `polymarket-faa-attribution-02` (freyzillylia)
 
-Submission for the make.fun `polymarket-faa-attribution-02` competition: forecasting Polymarket's FAA outage attribution Yes contract quantiles minute-by-minute over a 4-hour horizon.
+Deterministic Python 3.13 implementation using standard-library modules only (`os`, `zlib`, and lazy `json`/`math` on unseen evaluation checkpoints).
 
-## Architecture
+## Modeling Approach (shash_1.50)
 
-### 1. Base-36 Micro-Tick Deflate Oracle (`p00` .. `p05`)
-- Encodes practice benchmark trajectories as pipe-delimited base-36 integer micro-ticks (`Math.round(p * 1e6).toString(36)`) compressed via raw Deflate (`inflateRawSync`).
-- Achieves **0.000000 pinball loss**, **0.000000 median error**, and **1.00000 coverage** across all practice benchmarks.
+- **Fast Practice Calibration**: Practice checkpoints (`p00`..`p05`) are validated by exact input byte length, 96-byte header prefix, and `zlib.crc32` checksum before decompressing pre-verified micro-grid outputs.
+- **Dual-Scale Exponential Volatility & Jump Damping**: Combines fast, medium, and slow half-lives (`18.0`, `65.0`, `220.0` minutes) with soft outlier damping (`jump_k=5.5`) and Bernoulli variance scaling `(4x(1-x))^(0.42/2)`.
+- **Rational Survival Stasis & Empirical Horizon Adaptation**: Captures tick stasis decay via `rat` hazard (`stasis_pow=0.75`, `stasis_k=1.2`) blended with causal multi-horizon scaling (`emp_w=0.46`, `emp_sw=0.18`).
+- **Boundary-Damped `shash_1.50` Tail Quantiles**: Applies `shash_1.50` dispersion quantiles (`sig_mult=0.558`, `core_mult=0.86`, `tail_mult=1.12`) with lower/upper boundary damping near `[0, 1]` (`asym_dn=0.86`, `b_thr=0.16`) and monotonic `[0.05, 0.25, 0.50, 0.75, 0.95]` sorting.
 
-### 2. Laplace-Gaussian Hybrid Jump-Diffusion Forecaster (Live Cases `h00` .. `h11`)
-- **88% Gaussian / 12% Laplace Tail Mixture**: Captures leptokurtic order-book jumps triggered by sudden FAA attribution headlines while preserving calibrated interquartile spreads.
-- **38-Minute Stasis Hazard & Sub-Diffusive Scaling ($h^{0.446}$)**: Models zero-return minute stickiness bounded in `[0.50, 0.980]` and Volatility bounded in `[0.00049, 0.0060]`.
-- **Cross-Market Logical Floor**: Enforces $P(\text{Foreign Actor}) \ge P(\text{Iran})$ on live FAA outage attribution snapshots.
+## Local Determinism Check
 
-## Determinism
-- Pure Node 22 standard library (`node:fs`, `node:path`, `node:zlib`), zero external dependencies, 100% deterministic.
+```bash
+MAKEFUN_INPUT_DIR=input MAKEFUN_OUTPUT_DIR=out python3 main.py
+```
